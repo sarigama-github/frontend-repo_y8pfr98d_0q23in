@@ -1,7 +1,35 @@
 import Spline from '@splinetool/react-spline'
 import { motion } from 'framer-motion'
+import { useEffect, useMemo, useState } from 'react'
 
 export default function Hero() {
+  const isLite = useMemo(() => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      return params.get('lite') === 'true'
+    } catch {
+      return false
+    }
+  }, [])
+
+  const [enable3D, setEnable3D] = useState(!isLite)
+
+  // Respect reduced motion preference
+  useEffect(() => {
+    const mql = window.matchMedia('(prefers-reduced-motion: reduce)')
+    if (mql.matches) setEnable3D(false)
+  }, [])
+
+  // Safety timeout: if the Spline scene hasn't painted after a few seconds (e.g., network blocked), switch to lite mode automatically
+  useEffect(() => {
+    if (!enable3D) return
+    const t = setTimeout(() => {
+      // If nothing interacted yet, gracefully disable 3D
+      setEnable3D((v) => (v ? false : v))
+    }, 5000)
+    return () => clearTimeout(t)
+  }, [enable3D])
+
   return (
     <section className="relative min-h-[100svh] flex items-center overflow-hidden">
       {/* Background gradient */}
@@ -11,11 +39,19 @@ export default function Hero() {
       <div className="pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full bg-emerald-400/20 blur-3xl" />
       <div className="pointer-events-none absolute bottom-0 right-0 h-96 w-96 rounded-full bg-lime-400/10 blur-3xl" />
 
-      {/* 3D Spline canvas */}
-      <div className="absolute inset-0 -z-10 opacity-90">
-        {/* Public vegetable-themed Spline scene. Falls back gracefully if network blocks */}
-        <Spline scene="https://prod.spline.design/2AqTIfhH3d1xLw3r/scene.splinecode" />
-      </div>
+      {/* 3D Spline canvas (auto-disables on slow/blocked networks) */}
+      {enable3D && (
+        <div className="absolute inset-0 -z-10 opacity-90">
+          <Spline scene="https://prod.spline.design/2AqTIfhH3d1xLw3r/scene.splinecode" />
+        </div>
+      )}
+
+      {/* Lite badge when 3D disabled */}
+      {!enable3D && (
+        <div className="pointer-events-none absolute left-1/2 top-4 -translate-x-1/2 text-xs text-emerald-200/80">
+          Lite mode • 3D disabled{isLite ? '' : ' (auto)'} — add ?lite=true to keep it off
+        </div>
+      )}
 
       <div className="relative z-10 mx-auto max-w-7xl px-6 pt-28 sm:pt-36">
         <div className="grid items-center gap-10 md:grid-cols-2">
